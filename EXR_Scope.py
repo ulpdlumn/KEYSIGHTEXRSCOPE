@@ -7,7 +7,7 @@ import serial
 import pyvisa as visa
 import socket
 
-#delay generator paramters
+#delay generator paramters end my nme
 target_ip = "192.168.8.150"  # Replace with the actual IP address
 target_port = 5024           # Replace with the actual port number (e.g., 80 for HTTP)
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

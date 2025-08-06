@@ -6,6 +6,33 @@ import scipy
 import serial
 import pyvisa as visa
 import socket
+import time
+
+#connect to glrb board
+try:
+      # Replace 'COM3' with your actual serial port
+    ser = serial.Serial('COM6', 115200, timeout=1) 
+    print("Serial connection established.")
+except serial.SerialException as e:
+    print(f"Failed to connect: {e}")
+    exit()
+time.sleep(2) 
+ser.flushInput()
+ser.write(b'?\n') 
+#reading response
+grbl_response = ser.readline().decode('utf-8').strip()
+
+if "Grbl" in grbl_response:
+    print(f"GRBL board detected: {grbl_response}")
+        # You can send a '$' command to get help and further verify
+    ser.write(b'$\n')
+    help_response = ser.readline().decode('utf-8').strip()
+    print(f"GRBL help message: {help_response}")
+else:
+    print(f"Unexpected response, not a GRBL board or connection issue: {grbl_response}")
+
+ 
+
 
 #delay generator code
 target_ip = "192.168.8.150"  # Replace with the actual IP address

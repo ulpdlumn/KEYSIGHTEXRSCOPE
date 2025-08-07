@@ -8,7 +8,7 @@ import pyvisa as visa
 import socket
 import time
 
-#connect to glrb board
+#connect to glrb board(Ji Yungs does not work)
 try:
       # Replace 'COM3' with your actual serial port
     ser = serial.Serial('COM6', 115200, timeout=1) 

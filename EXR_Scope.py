@@ -9,7 +9,7 @@ import socket
 import time
 
 s = serial.Serial('COM5', 115200, timeout=1) 
-    # Wake up GRBL (send newline characters)
+# Wake up GRBL (send newline characters)
 s.write(b"\r\n\r\n") 
 time.sleep(2) # Wait for GRBL to initialize
 s.flushInput() # Flush startup text in serial input

@@ -8,31 +8,22 @@ import pyvisa as visa
 import socket
 import time
 
-#connect to glrb board(Ji Yungs does not work)
-try:
-      # Replace 'COM3' with your actual serial port
-    ser = serial.Serial('COM6', 115200, timeout=1) 
-    print("Serial connection established.")
-except serial.SerialException as e:
-    print(f"Failed to connect: {e}")
-    exit()
-time.sleep(2) 
-ser.flushInput()
-ser.write(b'?\n') 
-#reading response
-grbl_response = ser.readline().decode('utf-8').strip()
+s = serial.Serial('COM5', 115200, timeout=1) 
+    # Wake up GRBL (send newline characters)
+s.write(b"\r\n\r\n") 
+time.sleep(2) # Wait for GRBL to initialize
+s.flushInput() # Flush startup text in serial input
 
-if "Grbl" in grbl_response:
-    print(f"GRBL board detected: {grbl_response}")
-        # You can send a '$' command to get help and further verify
-    ser.write(b'$\n')
-    help_response = ser.readline().decode('utf-8').strip()
-    print(f"GRBL help message: {help_response}")
-else:
-    print(f"Unexpected response, not a GRBL board or connection issue: {grbl_response}")
+# Send G-code commands
+s.write(b"G90\n")  # Set absolute positioning
+s.write(b"G00 X10 Y20 Z5 F1000\n") # Move to X=10, Y=20, Z=5 at 1000mm/min
+time.sleep(5)  # Allow time for movement
 
- 
+s.write(b"G01 X50 Y30 Z10 F500\n") # Move to X=50, Y=30, Z=10 at 500mm/min
+time.sleep(5) # Allow time for movement
 
+# Close the serial port
+s.close() 
 
 #delay generator code
 target_ip = "192.168.8.150"  # Replace with the actual IP address
@@ -113,4 +104,5 @@ for i in range(num_iteration):
      break
 plt.show() # Display the final plot after all acquisitions
      
+
 

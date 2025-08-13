@@ -80,8 +80,14 @@ scope.write(":FREQuency 1000") # Set pulse frequency to 1 kHz
 #enable and trigger output
 scope.write("OUTPut ON")
 waveforms = []
+x_coords = []
+z_coords = []
 for i in range(num_iteration): 
     #data collection options
+    newx = float(raw_input("Enter x:"))
+    newz = float(raw-input("Enter z:"))
+    x_coords.append(newx)
+    z_coords.append(newz)
     scope.write(":ACQuire:COUNt 1")
     scope.write('acq:aver ON')
     scope.write('wav:VIEW ALL')
@@ -105,5 +111,6 @@ for i in range(num_iteration):
      break
 plt.show() # Display the final plot after all acquisitions
      
+
 
 

@@ -16,12 +16,12 @@ time.sleep(2) # Wait for GRBL to initialize
 s.flushInput() # Flush startup text in serial input
 
 # Send G-code commands
-s.write(b"G90\n")  # Set absolute positioning
-s.write(b"G00 X10 Y20 Z5 F1000\n") # Move to X=10, Y=20, Z=5 at 1000mm/min
+s.write(b"G90\n")  # Set absolute positioning, for zeroing purposes only
+s.write(b"G00 X10 Y20 Z5 F400\n") # Move to X=10, Y=20, Z=5 at 400mm/min UPDATE TO ACTUAL ZERO
 time.sleep(5)  # Allow time for movement
 
-s.write(b"G01 X50 Y30 Z10 F500\n") # Move to X=50, Y=30, Z=10 at 500mm/min
-time.sleep(5) # Allow time for movement
+s.write(b"G91/n") #set to relative positioning
+
 
 # Close the serial port
 s.close() 
@@ -54,7 +54,8 @@ avgCount = 1
 #scope.write('*rst')
 scope.query('*opc?')
 #number of iterations
-num_iteration = 3
+iter_x = 10 #should have a total of 17,410 mm of movement (due to 1/100 reduction); 400 steps per mm, so 69464000
+iter_z = 10
 #setting impedance of channel
 scope.write(":CHANnel1:INPut DC1M")
 scope.write(":CHANnel8:INPut DC1M")
@@ -80,37 +81,49 @@ scope.write(":FREQuency 1000") # Set pulse frequency to 1 kHz
 #enable and trigger output
 scope.write("OUTPut ON")
 waveforms = []
-x_coords = []
+# positions of waveform acquisition
+x_coords = [] 
 z_coords = []
-for i in range(num_iteration): 
-    #data collection options
-    newx = float(raw_input("Enter x:"))
-    newz = float(raw-input("Enter z:"))
-    x_coords.append(newx)
-    z_coords.append(newz)
-    scope.write(":ACQuire:COUNt 1")
-    scope.write('acq:aver ON')
-    scope.write('wav:VIEW ALL')
-    scope.write('digitize')
-    scope.timeout = 50000
-    waveform_data = scope.query_binary_values('waveform:data?',datatype='b')
-    waveforms.append(waveform_data)
-    plt.plot(waveform_data, label=f'Acquisition {i+1}') # Using raw data for simplicity; scale with preamble for actual voltage/time
-    plt.xlabel('Sample Index')
-    plt.ylabel('Raw Data Value')
-    plt.title('Oscilloscope Waveforms')
-    plt.legend()
-    plt.grid(True)
-    plt.pause(0.1) # Pause to allow plot to update
-    scope.write_ascii_values("WLISt:WAVeform:DATA somename,", waveform_data)
-    scope.write("SOURce1:FUNCtion ARB") # Set function to arbitrary
-    #scope.write(f"SOURce1:FUNCtion:ARBitrary:SRATe {num_points * frequency}") # Set sample rate
-    #send out waveform to stepper motors
 
-    if i == num_iteration:
-     break
+for k in range(iter_z):
+    for i in range(iter_x): 
+        #data collection options
+        x_coords.append(i)
+        z_coords.append(k)
+        scope.write(":ACQuire:COUNt 1")
+        scope.write('acq:aver ON')
+        scope.write('wav:VIEW ALL')
+        scope.write('digitize')
+        scope.timeout = 50000
+        waveform_data = scope.query_binary_values('waveform:data?',datatype='b')
+        waveforms.append(waveform_data)
+        plt.plot(waveform_data, label=f'Acquisition {i+1}') # Using raw data for simplicity; scale with preamble for actual voltage/time
+        plt.xlabel('Sample Index')
+        plt.ylabel('Raw Data Value')
+        plt.title('Oscilloscope Waveforms')
+        plt.legend()
+        plt.grid(True)
+        plt.pause(0.1) # Pause to allow plot to update
+        scope.write_ascii_values("WLISt:WAVeform:DATA somename,", waveform_data)
+        scope.write("SOURce1:FUNCtion ARB") # Set function to arbitrary
+        #scope.write(f"SOURce1:FUNCtion:ARBitrary:SRATe {num_points * frequency}") # Set sample rate
+        #send out waveform to stepper motors
+        s.open()
+        s.write(b"G0 X.0025 /n")
+        time.sleep(5)
+        s.close()
+    s.open()
+    s.write(b"G0 Z.0025 /n")
+    time.sleep(5)
+    s.close()
+    
+        
+    
+        if i == num_iteration:
+         break
 plt.show() # Display the final plot after all acquisitions
      
+
 
 
 

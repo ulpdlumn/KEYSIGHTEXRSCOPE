@@ -16,9 +16,9 @@ time.sleep(2) # Wait for GRBL to initialize
 s.flushInput() # Flush startup text in serial input
 
 # Send G-code commands
-s.write(b"G90\n")  # Set absolute positioning, for zeroing purposes only
-s.write(b"G00 X10 Y20 Z5 F400\n") # Move to X=10, Y=20, Z=5 at 400mm/min UPDATE TO ACTUAL ZERO
-time.sleep(5)  # Allow time for movement
+#s.write(b"G90\n")  # Set absolute positioning, for zeroing purposes only
+#s.write(b"G00 X10 Y20 Z5 F400\n") # Move to X=10, Y=20, Z=5 at 400mm/min UPDATE TO ACTUAL ZERO
+#time.sleep(5)  # Allow time for movement
 
 s.write(b"G91/n") #set to relative positioning
 
@@ -54,8 +54,8 @@ avgCount = 1
 #scope.write('*rst')
 scope.query('*opc?')
 #number of iterations
-iter_x = 10 #should have a total of 17,410 mm of movement (due to 1/100 reduction); 400 steps per mm, so 69464000
-iter_z = 10
+iter_x = 915 #should have a total of 17,410 mm of movement (due to 1/100 reduction); 400 steps per mm, so 69464000
+iter_z = 915
 #setting impedance of channel
 scope.write(":CHANnel1:INPut DC1M")
 scope.write(":CHANnel8:INPut DC1M")
@@ -109,7 +109,10 @@ for k in range(iter_z):
         #scope.write(f"SOURce1:FUNCtion:ARBitrary:SRATe {num_points * frequency}") # Set sample rate
         #send out waveform to stepper motors
         s.open()
-        s.write(b"G0 X.0025 /n")
+        if k % 2 == 0:
+            s.write(b"G0 X.0025 /n")
+        else:
+            s.write(b"G0 X-.0025 /n")t
         time.sleep(5)
         s.close()
     s.open()
@@ -123,6 +126,7 @@ for k in range(iter_z):
          break
 plt.show() # Display the final plot after all acquisitions
      
+
 
 
 

@@ -8,7 +8,7 @@ import pyvisa as visa
 import socket
 import time
 
-#connecting to board
+#connecting to board(s)
 s = serial.Serial('COM5', 115200, timeout=1) 
 # Wake up GRBL (send newline characters)
 s.write(b"\r\n\r\n") 

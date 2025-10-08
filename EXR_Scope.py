@@ -11,7 +11,7 @@ import elliptec
 
 #connecting to board(s)
 s = serial.Serial('COM5', 115200, timeout=1) 
-#connecting to motorized rotating mount
+#connecting to motorized rotating mount(s)
 controller = elliptec.Controller('COM6')
 # Wake up GRBL (send newline characters)
 s.write(b"\r\n\r\n") 

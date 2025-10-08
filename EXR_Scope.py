@@ -7,9 +7,12 @@ import serial
 import pyvisa as visa
 import socket
 import time
+import elliptec
 
 #connecting to board(s)
 s = serial.Serial('COM5', 115200, timeout=1) 
+#connecting to motorized rotating mount
+controller = elliptec.Controller('COM6')
 # Wake up GRBL (send newline characters)
 s.write(b"\r\n\r\n") 
 time.sleep(2) # Wait for GRBL to initialize

@@ -53,7 +53,7 @@ polarization_angle = []
 #Loop through each polarization state and record average waveform
 for angle in [0, 90]:
     ro.set_angle(angle)
-    # turn on scope averaging
+    # turn on scope averaging!
     scope.write('ACQuire:AVERage ON')
     # set the number of waves to be averaged
     scope.write('ACQuire:COUNt 4048')

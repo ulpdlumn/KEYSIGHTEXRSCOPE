@@ -35,7 +35,8 @@ for device in devices:
 from decimal import Decimal
 import clr # Assuming pythonnet is installed and clr is available
 
-    # Example Python Decimal
+    # Example of a list of Python Decimal(s) values
+py_decimal_start = Decimal('0')
 py_decimal = Decimal('45.00')
 
     # Convert to string and then to System.Decimal

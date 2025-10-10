@@ -7,14 +7,51 @@ import pyvisa as visa
 import socket
 import time
 import elliptec
+import sys, os, time
+import clr
+from decimal import Decimal
 
-#Connect to motorized rotation mount through usb com port
-controller_1 = elliptec.Controller('COM6')
-# the name of the mount(s) will be 
-ro_1 = elliptec.Rotator(controller)
-ro_1.change_address("1")
-ro_1.save_user_data()
-#Connect to scope through local network. Please note the 
+
+clr.AddReference('C:\Program Files\Thorlabs\Elliptec\Thorlabs.Elliptec.ELLO_DLL.dll')
+
+from Thorlabs.Elliptec.ELLO_DLL import *
+
+print("Initializing and enabling device, this might take a couple seconds...")
+
+# Connect to device,check Windows Device Manager to find out which COM port is used.
+ELLDevicePort.Connect('COM1')
+
+# Define byte address. 
+min_address="0"
+max_address="F"
+
+# Build device list.
+ellDevices=ELLDevices()
+devices=ellDevices.ScanAddresses(min_address, max_address)
+
+# Initialize device. 
+for device in devices:
+    if ellDevices.Configure(device):
+        
+        addressedDevice=ellDevices.AddressedDevice(device[0])
+
+        deviceInfo=addressedDevice.DeviceInfo
+        for stri in deviceInfo.Description():
+            print(stri)
+
+#have to convert characters of degrees to decimal
+from decimal import Decimal
+import clr # Assuming pythonnet is installed and clr is available
+
+    # Example Python Decimal
+py_decimal = Decimal('45.00')
+
+    # Convert to string and then to System.Decimal
+clr.AddReference("System") # Add reference to System assembly
+from System import Decimal as NetDecimal # Alias to avoid name collision
+
+net_decimal = NetDecimal.Parse(str(py_decimal))
+print(net_decimal)
 #correct IP address and network connection "GL-MT6000-bdc-5G" is required 
 rm = visa.ResourceManager()
 scope = rm.open_resource('TCPIP0::192.168.8.226::hislip0::INSTR')

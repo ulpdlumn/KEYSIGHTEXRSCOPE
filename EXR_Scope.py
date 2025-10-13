@@ -26,7 +26,7 @@ s.flushInput() # Flush startup text in serial input
 s.write(b"G91/n") #set to relative positioning
 
 
-# Close the serial port(s)
+# Close the serial port(s) or other connections
 s.close() 
 
 #delay generator code

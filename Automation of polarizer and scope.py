@@ -96,7 +96,7 @@ for angle in angles:
     #saving averaged data
     waveform_data = scope.query_binary_values('waveform:data?',datatype='b')
 
-plt.figure()
+plt.figure(1)
 plt.plot(waveform_data)
     
     

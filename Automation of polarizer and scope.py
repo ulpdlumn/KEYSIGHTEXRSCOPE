@@ -46,7 +46,7 @@ angles = [45]  # You can change or expand this list
 print("Homing device...")
 addressedDevice.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
 time.sleep(5)
-#correct IP address and network connection "GL-MT6000-bdc-5G" is required 
+#correct IP address and network connection "GL-MT6000-bdc-5G" or "Wifi pro_557544" is required 
 rm = visa.ResourceManager()
 scope = rm.open_resource('TCPIP0::192.168.8.226::hislip0::INSTR')
 #setting up scope display and channels
@@ -98,6 +98,7 @@ for angle in angles:
 
 plt.figure(1)
 plt.plot(waveform_data)
+input("Press Enter to close...")
     
     
 

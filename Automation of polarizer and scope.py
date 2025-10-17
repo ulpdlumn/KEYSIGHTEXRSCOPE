@@ -21,7 +21,7 @@ from System import Decimal as NetDecimal
 print("Initializing and enabling device, this might take a couple seconds...")
 
 # Connect to device (adjust COM port as needed)
-ELLDevicePort.Connect('COM1')
+ELLDevicePort_1.Connect('COM1')
 
 # Define byte address range
 min_address = "0"
@@ -33,7 +33,9 @@ devices = ellDevices.ScanAddresses(min_address, max_address)
 
 for device in devices:
     if ellDevices.Configure(device):
-        addressedDevice = ellDevices.AddressedDevice(device[0])
+        addressedDevice_1 = ellDevices.AddressedDevice(device[0])
+        addressedDevice_2 = ellDevices.AddressedDevice(device[1])
+        addressedDevice_3 = ellDevices.AddressedDevice(device[2])
         deviceInfo = addressedDevice.DeviceInfo
         for stri in deviceInfo.Description():
             print(stri)
@@ -42,7 +44,8 @@ for device in devices:
 # Rotate through specific polarization angles
 # ----------------------------------------
 
-angles = [45]  # You can change or expand this list
+#Angles for polarizer 1, 2 and 3. Note the rate of rotation for polarizer 2 and 3 will be the same
+angles_1 = [45]  # You can change or expand this list
 print("Homing device...")
 addressedDevice.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
 time.sleep(5)
@@ -87,7 +90,9 @@ for angle in angles:
     # Convert to .NET Decimal
     net_angle = NetDecimal.Parse(str(angle))
     print(f"Moving to {angle} degrees...")
-    addressedDevice.MoveAbsolute(net_angle)
+    addressedDevice_1.MoveAbsolute(net_angle)
+    addressedDevice_2.MoveAbsolute(45-net_angle)
+    addressedDevice_3.MoveAbsolute(45-net_angle)
     time.sleep(2)
     # turn on scope averaging!
     scope.write('ACQuire:AVERage ON')
@@ -101,5 +106,6 @@ plt.plot(waveform_data)
 input("Press Enter to close...")
     
     
+
 
     

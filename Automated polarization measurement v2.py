@@ -1,52 +1,79 @@
-#Example tested for ELL18
-import sys, os, time
+# -*- coding: utf-8 -*-
+# Import packages
+import matplotlib.pyplot as plt
+import numpy as np
+import serial
+import pyvisa as visa
+import socket
+import time
+import elliptec
+import sys, os
 import clr
-from decimal import Decimal
 
-
-clr.AddReference('C:\Program Files\Thorlabs\Elliptec\Thorlabs.Elliptec.ELLO_DLL.dll')
-
+# Add reference to the Thorlabs Elliptec DLL
+clr.AddReference(r'C:\Program Files\Thorlabs\Elliptec\Thorlabs.Elliptec.ELLO_DLL.dll')
 from Thorlabs.Elliptec.ELLO_DLL import *
+
+# Add reference to .NET System library (for .NET Decimal)
+clr.AddReference("System")
+from System import Decimal as NetDecimal
 
 print("Initializing and enabling device, this might take a couple seconds...")
 
-# Connect to device,check Windows Device Manager to find out which COM port is used.
-ELLDevicePort.Connect('COM1')
+# Connect to device
+ELLDevicePort.Connect('COM4')
 
-# Define byte address. 
-min_address="0"
-max_address="F"
+# Define byte address range
+min_address = "0"
+max_address = "f"
 
-# Build device list.
-ellDevices=ELLDevices()
-devices=ellDevices.ScanAddresses(min_address, max_address)
+# Build and configure device list
+ellDevices = ELLDevices()
+devices = ellDevices.ScanAddresses(min_address, max_address)
 
-# Initialize device. 
+# Store motors here
+motors = {}
+
 for device in devices:
     if ellDevices.Configure(device):
-        
-        addressedDevice=ellDevices.AddressedDevice(device[0])
+        addr = device[0]
+        addressedDevice = ellDevices.AddressedDevice(addr)
+        motors[addr] = addressedDevice
 
-        deviceInfo=addressedDevice.DeviceInfo
+        deviceInfo = addressedDevice.DeviceInfo
         for stri in deviceInfo.Description():
             print(stri)
 
-#have to convert characters of degrees to decimal
-from decimal import Decimal
-import clr # Assuming pythonnet is installed and clr is available
+# -------------------------------------------------
+# Choose the two motor addresses you want to control
+# -------------------------------------------------
+motor_A = motors["0"]   # first motor
+motor_B = motors["1"]   # second motor
 
-    # Example of a list of Python Decimal(s) values
-py_decimal_start = Decimal('0')
-py_decimal = Decimal('45.00')
+# ----------------------------------------
+# Home both motors (simultaneously)
+# ----------------------------------------
+print("Homing motors...")
+motor_A.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
+motor_B.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
+time.sleep(5)
 
-    # Convert to string and then to System.Decimal
-clr.AddReference("System") # Add reference to System assembly
-from System import Decimal as NetDecimal # Alias to avoid name collision
+# ----------------------------------------
+# Rotate both motors together
+# ----------------------------------------
+angles_A = [45]   # motor A angles
+angles_B = [90]   # motor B angles (can be different)
 
-net_decimal = NetDecimal.Parse(str(py_decimal))
-print(net_decimal)
-        
-# Call move methods.
-addressedDevice.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
-addressedDevice.MoveAbsolute(net_decimal)
+for angA, angB in zip(angles_A, angles_B):
+    netA = NetDecimal.Parse(str(angA))
+    netB = NetDecimal.Parse(str(angB))
+
+
+    # Send both move commands before waiting
+    motor_A.MoveAbsolute(netA)
+    motor_B.MoveAbsolute(netB)
+
+    time.sleep(2)
+
+print("Dual-motor rotation complete.")
         

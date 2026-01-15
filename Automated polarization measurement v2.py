@@ -1,13 +1,6 @@
 # -*- coding: utf-8 -*-
-# Import packages
-import matplotlib.pyplot as plt
-import numpy as np
-import serial
-import pyvisa as visa
-import socket
+
 import time
-import elliptec
-import sys, os
 import clr
 
 # Add reference to the Thorlabs Elliptec DLL
@@ -18,62 +11,96 @@ from Thorlabs.Elliptec.ELLO_DLL import *
 clr.AddReference("System")
 from System import Decimal as NetDecimal
 
-print("Initializing and enabling device, this might take a couple seconds...")
 
-# Connect to device
-ELLDevicePort.Connect('COM4')
+class ElliptecController:
+    def __init__(self, comport="COM4", min_address="0", max_address="f"):
+        self.comport = comport
+        self.min_address = min_address
+        self.max_address = max_address
+        self.ellDevices = ELLDevices()
+        self.motors = {}
 
-# Define byte address range
-min_address = "0"
-max_address = "f"
+    def connect(self):
+        print("Initializing and enabling device, this might take a couple seconds...")
+        ELLDevicePort.Connect(self.comport)
+        print(f"Connected to {self.comport}")
 
-# Build and configure device list
-ellDevices = ELLDevices()
-devices = ellDevices.ScanAddresses(min_address, max_address)
+    def scan_and_configure(self):
+        print("Scanning for devices...")
+        devices = self.ellDevices.ScanAddresses(self.min_address, self.max_address)
 
-# Store motors here
-motors = {}
+        for device in devices:
+            if self.ellDevices.Configure(device):
+                addr = device[0]
+                addressedDevice = self.ellDevices.AddressedDevice(addr)
+                self.motors[addr] = addressedDevice
 
-for device in devices:
-    if ellDevices.Configure(device):
-        addr = device[0]
-        addressedDevice = ellDevices.AddressedDevice(addr)
-        motors[addr] = addressedDevice
+                deviceInfo = addressedDevice.DeviceInfo
+                for line in deviceInfo.Description():
+                    print(line)
 
-        deviceInfo = addressedDevice.DeviceInfo
-        for stri in deviceInfo.Description():
-            print(stri)
+        print(f"Found {len(self.motors)} motor(s).")
 
-# -------------------------------------------------
-# Choose the two motor addresses you want to control
-# -------------------------------------------------
-motor_A = motors["0"]   # first motor
-motor_B = motors["1"]   # second motor
+    def get_motor(self, address):
+        if address not in self.motors:
+            raise ValueError(f"Motor with address {address} not found.")
+        return self.motors[address]
 
-# ----------------------------------------
-# Home both motors (simultaneously)
-# ----------------------------------------
-print("Homing motors...")
-motor_A.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
-motor_B.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
-time.sleep(5)
+    def home_motor(self, motor):
+        motor.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
 
-# ----------------------------------------
-# Rotate both motors together
-# ----------------------------------------
-angles_A = [45]   # motor A angles
-angles_B = [90]   # motor B angles (can be different)
-
-for angA, angB in zip(angles_A, angles_B):
-    netA = NetDecimal.Parse(str(angA))
-    netB = NetDecimal.Parse(str(angB))
+    def move_motor_absolute(self, motor, angle_deg):
+        net_angle = NetDecimal.Parse(str(angle_deg))
+        motor.MoveAbsolute(net_angle)
 
 
-    # Send both move commands before waiting
-    motor_A.MoveAbsolute(netA)
-    motor_B.MoveAbsolute(netB)
+class DualMotorController:
+    def __init__(self, elliptec_controller, addr_A, addr_B):
+        self.ctrl = elliptec_controller
+        self.motor_A = self.ctrl.get_motor(addr_A)
+        self.motor_B = self.ctrl.get_motor(addr_B)
 
-    time.sleep(2)
+    def home_both(self):
+        print("Homing motors...")
+        self.ctrl.home_motor(self.motor_A)
+        self.ctrl.home_motor(self.motor_B)
+        time.sleep(5)
 
-print("Dual-motor rotation complete.")
-        
+    def move_both(self, angles_A, angles_B, delay=2):
+        if len(angles_A) != len(angles_B):
+            raise ValueError("angles_A and angles_B must have the same length.")
+
+        for angA, angB in zip(angles_A, angles_B):
+            print(f"Moving Motor A to {angA}°, Motor B to {angB}°")
+
+            self.ctrl.move_motor_absolute(self.motor_A, angA)
+            self.ctrl.move_motor_absolute(self.motor_B, angB)
+
+            time.sleep(delay)
+
+        print("Dual-motor rotation complete.")
+
+
+# =========================
+# Main execution
+# =========================
+if __name__ == "__main__":
+    # Create controller and connect
+    elliptec_ctrl = ElliptecController(comport="COM4", min_address="0", max_address="f")
+    elliptec_ctrl.connect()
+    elliptec_ctrl.scan_and_configure()
+
+    # Choose motor addresses
+    dual_ctrl = DualMotorController(elliptec_ctrl, addr_A="0", addr_B="1")
+
+    # Home both motors
+    dual_ctrl.home_both()
+
+    # Define angles
+    angles_A = [45]
+    angles_B = [90]
+
+    # Move both motors
+    dual_ctrl.move_both(angles_A, angles_B, delay=2)
+
+

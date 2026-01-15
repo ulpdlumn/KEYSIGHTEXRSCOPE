@@ -91,7 +91,7 @@ if __name__ == "__main__":
     elliptec_ctrl.scan_and_configure()
 
     # Choose motor addresses
-    dual_ctrl = DualMotorController(elliptec_ctrl, addr_A="0", addr_B="1")
+    dual_ctrl = DualMotorController(elliptec_ctrl, addr_A="1", addr_B="2")
 
     # Home both motors
     dual_ctrl.home_both()
@@ -102,5 +102,6 @@ if __name__ == "__main__":
 
     # Move both motors
     dual_ctrl.move_both(angles_A, angles_B, delay=2)
+
 
 

@@ -1,128 +1,72 @@
 # -*- coding: utf-8 -*-
 
-import socket
 import time
-import clr
-import pyvisa as visa
-import serial
-
-#class to control EXR scope for collecting waveforms from detector 
-import matplotlib.pyplot as plt
 import numpy as np
-import scipy
-import serial
+import matplotlib.pyplot as plt
 import pyvisa as visa
-import socket
-import time
+import clr
+
+# ============================================================
+# Oscilloscope Class (Keysight EXR)
+# ============================================================
 
 class Oscilloscope:
-    def __init__(self, ip_address='192.168.8.225', interface='hislip0'):
-        """
-        Initialize connection to the oscilloscope.
-        """
-        self.ip_address = ip_address
-        self.interface = interface
+    def __init__(self, resource):
         self.rm = visa.ResourceManager()
-        self.scope = None
+        self.scope = self.rm.open_resource(resource)
+        self.scope.timeout = 20000
+        self.initialize()
 
-    def connect(self):
-        """
-        Connect to the oscilloscope via TCP/IP.
-        """
-        try:
-            resource_str = f'TCPIP0::{self.ip_address}::{self.interface}::INSTR'
-            self.scope = self.rm.open_resource(resource_str)
-            print(f"Connected to scope at {self.ip_address}")
-        except Exception as e:
-            print("Failed to connect to scope:", e)
+    def initialize(self):
+        self.scope.write("*RST")
+        self.scope.query("*OPC?")
+        print("Oscilloscope initialized.")
 
-    def reset(self):
-        """
-        Reset the oscilloscope and wait until operation is complete.
-        """
-        if self.scope is None:
-            print("Scope not connected. Call connect() first.")
-            return
-        try:
-            self.scope.write('*RST')
-            opc = self.scope.query('*OPC?')
-            print("Scope reset complete:", opc)
-        except Exception as e:
-            print("Error during scope reset:", e)
+    def enable_channel(self, channel):
+        self.scope.write(f":CHAN{channel}:DISP ON")
 
-    def write(self, command):
-        """
-        Send a command to the oscilloscope.
-        """
-        if self.scope:
-            self.scope.write(command)
-        else:
-            print("Scope not connected.")
+    def set_trigger_channel(self, channel):
+        self.scope.write(f":TRIGger:EDGE:SOURce CHAN{channel}")
 
-    def query(self, command):
-        """
-        Query the oscilloscope and return the response.
-        """
-        if self.scope:
-            return self.scope.query(command)
-        else:
-            print("Scope not connected.")
-            return None
+    def set_trigger_level(self, level):
+        self.scope.write(f":TRIGger:EDGE:LEVel {level}")
 
-    def close(self):
-        """
-        Close the connection to the scope.
-        """
-        if self.scope:
-            self.scope.close()
-            print("Scope connection closed.")
-
-    def ScopeChannels(self, channel, state=True):
-        if self.scope is None:
-            print("scope not connected")
-            return
-        state_str = "ON" if state else "OFF"
-        try:
-
-            self.scope.write(f"CHAN{channel}:DISP {state_str}")
-            self.scope.write(f"CHAN{channel}:INPut DC50")
-        except Exception as e:
-            print(f"Error setting channel {channel} display:", e)
-
-    def trigger(self, channel_trig):
-        self.scope.write(f"TRIGger:EDGE:SOUrce CHAN{channel_trig}")
-    def triggerlevel(self, channel_trig, value):    
-        self.scope.write(f"TRIGger:LEVel CHAN{channel_trig}, {value}")
+    def trigger_single(self):
+        self.scope.write(":SINGle")
 
     def acquire_waveform_binary(self, channel):
-        """
-        Acquire waveform from specified channel using binary transfer.
-        Returns waveform in volts (numpy array).
-        """
         self.scope.write(f":WAVeform:SOURce CHAN{channel}")
         self.scope.write(":WAVeform:FORMat BYTE")
         self.scope.write(":WAVeform:UNSigned 1")
         self.scope.write(":WAVeform:POINts:MODE RAW")
         self.scope.write(":WAVeform:POINts MAX")
 
-        y_increment = float(self.scope.query(":WAVeform:YINCrement?"))
-        y_origin    = float(self.scope.query(":WAVeform:YORigin?"))
-        y_reference = float(self.scope.query(":WAVeform:YREFerence?"))
+        yinc = float(self.scope.query(":WAVeform:YINCrement?"))
+        yorg = float(self.scope.query(":WAVeform:YORigin?"))
+        yref = float(self.scope.query(":WAVeform:YREFerence?"))
+
+        xinc = float(self.scope.query(":WAVeform:XINCrement?"))
+        xorg = float(self.scope.query(":WAVeform:XORigin?"))
 
         raw = self.scope.query_binary_values(
             ":WAVeform:DATA?",
-            datatype='B',
+            datatype="B",
             container=np.array
         )
 
-        waveform = (raw - y_reference) * y_increment + y_origin
-        return waveform
+        voltage = (raw - yref) * yinc + yorg
+        time_axis = xorg + np.arange(len(voltage)) * xinc
 
-# Add reference to the Thorlabs Elliptec DLL
-clr.AddReference(r'C:\Program Files\Thorlabs\Elliptec\Thorlabs.Elliptec.ELLO_DLL.dll')
+        return time_axis, voltage
+
+
+# ============================================================
+# Elliptec Motor Control
+# ============================================================
+
+clr.AddReference(r"C:\Program Files\Thorlabs\Elliptec\Thorlabs.Elliptec.ELLO_DLL.dll")
 from Thorlabs.Elliptec.ELLO_DLL import *
 
-# Add reference to .NET System library (for .NET Decimal)
 clr.AddReference("System")
 from System import Decimal as NetDecimal
 
@@ -132,48 +76,41 @@ class ElliptecController:
         self.comport = comport
         self.min_address = min_address
         self.max_address = max_address
-        self.ellDevices = ELLDevices()
+        self.devices = ELLDevices()
         self.motors = {}
 
     def connect(self):
-        print("Initializing and enabling device, this might take a couple seconds...")
+        print("Connecting to Elliptec...")
         ELLDevicePort.Connect(self.comport)
-        print(f"Connected to {self.comport}")
+        print("Elliptec connected.")
 
     def scan_and_configure(self):
-        print("Scanning for devices...")
-        devices = self.ellDevices.ScanAddresses(self.min_address, self.max_address)
+        print("Scanning for motors...")
+        found = self.devices.ScanAddresses(self.min_address, self.max_address)
 
-        for device in devices:
-            if self.ellDevices.Configure(device):
-                addr = device[0]
-                addressedDevice = self.ellDevices.AddressedDevice(addr)
-                self.motors[addr] = addressedDevice
+        for dev in found:
+            if self.devices.Configure(dev):
+                addr = dev[0]
+                self.motors[addr] = self.devices.AddressedDevice(addr)
+                print(f"Motor found at address {addr}")
 
-                deviceInfo = addressedDevice.DeviceInfo
-                for line in deviceInfo.Description():
-                    print(line)
+        print("Detected motors:", self.motors.keys())
 
-        print(f"Found {len(self.motors)} motor(s).")
-
-    def get_motor(self, address):
-        if address not in self.motors:
-            raise ValueError(f"Motor with address {address} not found.")
-        return self.motors[address]
+    def get_motor(self, addr):
+        return self.motors[addr]
 
     def home_motor(self, motor):
         motor.Home(ELLBaseDevice.DeviceDirection.AntiClockwise)
 
     def move_motor_absolute(self, motor, angle_deg):
-        net_angle = NetDecimal.Parse(str(angle_deg))
-        motor.MoveAbsolute(net_angle)
+        motor.MoveAbsolute(NetDecimal.Parse(str(angle_deg)))
 
 
 class DualMotorController:
-    def __init__(self, elliptec_controller, addr_A, addr_B):
-        self.ctrl = elliptec_controller
-        self.motor_A = self.ctrl.get_motor(addr_A)
-        self.motor_B = self.ctrl.get_motor(addr_B)
+    def __init__(self, ctrl, addr_A, addr_B):
+        self.ctrl = ctrl
+        self.motor_A = ctrl.get_motor(addr_A)
+        self.motor_B = ctrl.get_motor(addr_B)
 
     def home_both(self):
         print("Homing motors...")
@@ -181,93 +118,90 @@ class DualMotorController:
         self.ctrl.home_motor(self.motor_B)
         time.sleep(5)
 
-    def move_both(self, angles_A, angles_B, delay=2):
-        if len(angles_A) != len(angles_B):
-            raise ValueError("angles_A and angles_B must have the same length.")
 
-        for angA, angB in zip(angles_A, angles_B):
-            print(f"Moving Motor A to {angA}°, Motor B to {angB}°")
+# ============================================================
+# MAIN SCRIPT
+# ============================================================
 
-            self.ctrl.move_motor_absolute(self.motor_A, angA)
-            self.ctrl.move_motor_absolute(self.motor_B, angB)
-
-            time.sleep(delay)
-
-        print("Dual-motor rotation complete.")
-
-# Main execution
 if __name__ == "__main__":
-    # Connect to EXR scope
-    scope = Oscilloscope(ip_address='192.168.8.225')
-    scope.connect()
-    # Channel setup
-    scope.ScopeChannels(7, True)
-    scope.ScopeChannels(8, True)
-    #trigger
-    scope.trigger(7)
-    scope.triggerlevel(7, 0.6)
-    # Connecting to polarizer 
-    elliptec_ctrl = ElliptecController(comport="COM4", min_address="0", max_address="f")
-    elliptec_ctrl.connect()
-    elliptec_ctrl.scan_and_configure()
 
-    # Choose motor addresses
-    dual_ctrl = DualMotorController(elliptec_ctrl, addr_A="1", addr_B="2")
+    # -------------------------------
+    # Connect to Oscilloscope
+    # -------------------------------
+    scope = Oscilloscope("TCPIP0::192.168.8.225::hislip0::INSTR")
 
-    # Home both motors
-    dual_ctrl.home_both()
+    scope.enable_channel(1)
+    scope.enable_channel(8)
 
-    # rotation of polarizers
-    start_angle_A = 0
-    end_angle_A = start_angle_A + 5
-    start_angle_B = start_angle_A+40
-    end_angle_B = start_angle_B + 5
+    scope.set_trigger_channel(1)
+    scope.set_trigger_level(0.05)
 
-    #steps for rotation of polarizers
-    step_A = 5
-    step_B = step_A
+    # -------------------------------
+    # Connect to Elliptec
+    # -------------------------------
+    elliptec = ElliptecController(comport="COM4")
+    elliptec.connect()
+    elliptec.scan_and_configure()
 
-    #creating list of angles for polarizers to rotate through
-    angles_A = list(range(start_angle_A, end_angle_A + step_A, step_A))
-    angles_B = list(range(start_angle_B, end_angle_B + step_B, step_B))
+    dual = DualMotorController(elliptec, addr_A="1", addr_B="2")
+    dual.home_both()
 
-    # waveform data
-    waveform_data = {}
+    # -------------------------------
+    # Measurement Angles
+    # -------------------------------
+    angles_A = np.arange(0, 181, 30)
+    angles_B = np.arange(0, 181, 30)
 
-    #plot Setup
+    # -------------------------------
+    # Storage
+    # -------------------------------
+    waveforms = {}
+    integrals = {}
+
+    # -------------------------------
+    # Live Plot
+    # -------------------------------
     plt.ion()
     fig, ax = plt.subplots()
-    line, = ax.plot([], [], lw=1)
-    ax.set_xlabel("Sample Index")
+    line, = ax.plot([], [])
+    ax.set_xlabel("Time (s)")
     ax.set_ylabel("Voltage (V)")
-    ax.set_title("Live Waveform")
-    plt.show()
 
-    # Sweep through all angle combinations
+    # -------------------------------
+    # Acquisition Loop
+    # -------------------------------
     for angB in angles_B:
         for angA in angles_A:
 
-            print(f"Motor A → {angA}°, Motor B → {angB}°")
+            print(f"\nMoving motors → A={angA}°, B={angB}°")
 
-            elliptec_ctrl.move_motor_absolute(dual_ctrl.motor_A, angA)
-            elliptec_ctrl.move_motor_absolute(dual_ctrl.motor_B, angB)
+            elliptec.move_motor_absolute(dual.motor_A, angA)
+            elliptec.move_motor_absolute(dual.motor_B, angB)
             time.sleep(2)
 
-            # Trigger & Acquire
-            scope.write("*TRG")
+            scope.trigger_single()
             time.sleep(0.2)
 
-            waveform = scope.acquire_waveform_binary(channel=7)
-            waveform_data[(angA, angB)] = waveform
+            t, v = scope.acquire_waveform_binary(channel=8)
 
-            print("Waveform acquired")
-            line.set_data(np.arange(len(waveform)), waveform)
+            baseline = np.mean(v[:50])
+            v -= baseline
+
+            integral = np.trapz(v, t)
+
+            waveforms[(angA, angB)] = v
+            integrals[(angA, angB)] = integral
+
+            print(f"Integrated signal: {integral:.3e} V·s")
+
+            line.set_data(t, v)
             ax.relim()
             ax.autoscale_view()
-            ax.set_title(f"Waveform | A={angA}°  B={angB}°")
+            ax.set_title(f"A={angA}°  B={angB}°  ∫Vdt={integral:.3e}")
             fig.canvas.draw()
             fig.canvas.flush_events()
 
-    print("Scan complete.")
+    plt.ioff()
+    plt.show()
 
-
+    print("\nMeasurement complete.")
